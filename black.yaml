@@ -1,8 +1,8 @@
 # フォント設定
 fonts:
   # システムにインストールされているフォント名、またはパスを指定
-  bold: ["LibreBaskerville-Bold.ttf"]
-  regular: ["LibreBaskerville-Regular.ttf"]
+  bold: ["Montserrat-Bold.ttf"]
+  regular: ["Montserrat-Regular.ttf"]
   
   # サイズ指定のタイプ ("px" または "ratio")
   size_type: "px"

@@ -62,11 +62,12 @@ class ImageProcessor:
         with open(config_path, 'r', encoding='utf-8') as f:
             raw_config = yaml.safe_load(f)
         self.config = Config(raw_config)
-        # 実行ファイルのパスを確認
         self.exiftool_path = shutil.which("exiftool.exe") or shutil.which("exiftool") or "exiftool"
+        
+        # ロゴファイルのパス設定
+        self.logo_path = Path("nikon_logo.png")
 
     def _get_metadata(self, image_path: Path) -> PhotoMetadata:
-        # PyExifToolの標準的な呼び出し方
         with exiftool.ExifToolHelper(executable=self.exiftool_path) as et:
             m = et.get_metadata(str(image_path))[0]
         
@@ -91,26 +92,20 @@ class ImageProcessor:
         return int(long_side * config_val)
 
     def _get_font(self, font_list: list, size: int):
-        """フォントを探し、見つからなければエラーを出す"""
         tried_fonts = []
         for name in font_list:
             tried_fonts.append(name)
             try:
-                # フォントの読み込みを試行
                 return ImageFont.truetype(name, size)
             except OSError:
                 continue
-        
-        # すべての候補で見つからなかった場合
         print(f"\n[!] ERROR: 指定されたフォントが見つかりません。")
         print(f"    探した名前/パス: {tried_fonts}")
-        print(f"    Windowsの場合、'C:/Windows/Fonts/arial.ttf' のようにフルパスで書くと確実です。")
-        
-        # 続行せず停止させる場合
         sys.exit(1)
 
     def process_image(self, path: Path):
         try:
+            # 画像読み込み
             img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
             meta = self._get_metadata(path)
             meta_dict = asdict(meta)
@@ -118,20 +113,24 @@ class ImageProcessor:
             w, h = img.size
             long_side = max(w, h)
             
+            # フォント設定
             main_fs = self._calculate_font_size(long_side, self.config.fonts.main_size)
             sub_fs = self._calculate_font_size(long_side, self.config.fonts.sub_size)
             f_main = self._get_font(self.config.fonts.bold, main_fs)
             f_sub = self._get_font(self.config.fonts.regular, sub_fs)
 
+            # 余白設定
             side_m = int(long_side * self.config.ratios.side_margin)
             bott_m = int(long_side * self.config.ratios.bottom_margin)
             canvas_w = w + side_m * 2
             canvas_h = h + side_m + bott_m
             
+            # キャンバス作成
             canvas = Image.new("RGB", (canvas_w, canvas_h), self.config.colors.bg)
             canvas.paste(img, (side_m, side_m))
             draw = ImageDraw.Draw(canvas)
 
+            # テキスト生成
             text_top = self.config.layout.top.format(**meta_dict)
             text_bottom = self.config.layout.bottom.format(**meta_dict)
 
@@ -139,13 +138,47 @@ class ImageProcessor:
             y_top_line = y_base + int(bott_m * self.config.layout.top_padding_ratio)
             y_bottom_line = y_top_line + self.config.layout.line_spacing_px
 
-            for text, font, color, y in [
-                (text_top, f_main, self.config.colors.main, y_top_line),
-                (text_bottom, f_sub, self.config.colors.sub, y_bottom_line)
-            ]:
-                tw = draw.textbbox((0, 0), text, font=font)[2]
-                draw.text(((canvas_w - tw) // 2, y), text, fill=color, font=font)
+            # --- ロゴ描画処理 ---
+            text_offset_x = 0
+            if self.logo_path.exists() and "Nikon" in meta.camera:
+                try:
+                    logo = Image.open(self.logo_path).convert("RGBA")
+                    # ロゴの高さをメインフォントの1.2倍程度にする
+                    logo_h = int(main_fs * 1.2)
+                    logo_w = int(logo.width * (logo_h / logo.height))
+                    logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+                    
+                    # テキスト幅を取得して中央配置を計算
+                    tw_top = draw.textbbox((0, 0), text_top, font=f_main)[2]
+                    spacing = int(main_fs * 0.5) # ロゴとテキストの間隔
+                    
+                    # ロゴとテキストを合わせた全体の幅
+                    total_content_w = logo_w + spacing + tw_top
+                    
+                    # ロゴの配置座標（全体を中央寄せにするための開始位置）
+                    start_x = (canvas_w - total_content_w) // 2
+                    logo_y = y_top_line + (main_fs - logo_h) // 2 # テキストと高さを合わせる
+                    
+                    # ロゴを合成
+                    canvas.paste(logo, (start_x, logo_y), logo)
+                    
+                    # テキストの開始位置をロゴの分だけ右にずらす
+                    text_top_x = start_x + logo_w + spacing
+                except Exception as logo_err:
+                    print(f"Logo placement failed: {logo_err}")
+                    text_top_x = (canvas_w - draw.textbbox((0, 0), text_top, font=f_main)[2]) // 2
+            else:
+                text_top_x = (canvas_w - draw.textbbox((0, 0), text_top, font=f_main)[2]) // 2
 
+            # --- テキスト描画 ---
+            # 上段テキスト
+            draw.text((text_top_x, y_top_line), text_top, fill=self.config.colors.main, font=f_main)
+            
+            # 下段テキスト（常に中央寄せ）
+            tw_bottom = draw.textbbox((0, 0), text_bottom, font=f_sub)[2]
+            draw.text(((canvas_w - tw_bottom) // 2, y_bottom_line), text_bottom, fill=self.config.colors.sub, font=f_sub)
+
+            # 保存
             out_dir = path.parent / self.config.output.dir_name
             out_dir.mkdir(exist_ok=True)
             out_path = out_dir / f"{self.config.output.prefix}{path.stem}.jpg"
