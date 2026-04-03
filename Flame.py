@@ -220,4 +220,3 @@ if __name__ == "__main__":
     processor.run(input_path)
     
     print("\nProcessing completed.")
-    input("Press Enter to exit...")
