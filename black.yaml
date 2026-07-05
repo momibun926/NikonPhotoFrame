@@ -7,8 +7,8 @@ fonts:
   # サイズ指定のタイプ ("px" または "ratio")
   size_type: "px"
   # px指定ならピクセル数、ratio指定なら長辺に対する割合（例: 0.02）
-  main_size: 110
-  sub_size: 80
+  main_size: 100
+  sub_size: 65
 
 # 色設定 (HEX形式)
 colors:
