@@ -103,7 +103,11 @@ class ImageProcessor:
         print(f"    探した名前/パス: {tried_fonts}")
         sys.exit(1)
 
-    def process_image(self, path: Path):
+    def process_image(self, path: Path, current: int, total: int):
+        # 進捗表示の作成
+        progress_pct = int((current / total) * 100)
+        progress_str = f"[{progress_pct:3d}%] ({current}/{total}) {path.name}"
+
         try:
             # 画像読み込み
             img = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
@@ -139,42 +143,30 @@ class ImageProcessor:
             y_bottom_line = y_top_line + self.config.layout.line_spacing_px
 
             # --- ロゴ描画処理 ---
-            text_offset_x = 0
+            text_top_x = 0
             if self.logo_path.exists() and "Nikon" in meta.camera:
                 try:
                     logo = Image.open(self.logo_path).convert("RGBA")
-                    # ロゴの高さをメインフォントの1.2倍程度にする
                     logo_h = int(main_fs * 1.2)
                     logo_w = int(logo.width * (logo_h / logo.height))
                     logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
                     
-                    # テキスト幅を取得して中央配置を計算
                     tw_top = draw.textbbox((0, 0), text_top, font=f_main)[2]
-                    spacing = int(main_fs * 0.5) # ロゴとテキストの間隔
-                    
-                    # ロゴとテキストを合わせた全体の幅
+                    spacing = int(main_fs * 0.5)
                     total_content_w = logo_w + spacing + tw_top
                     
-                    # ロゴの配置座標（全体を中央寄せにするための開始位置）
                     start_x = (canvas_w - total_content_w) // 2
-                    logo_y = y_top_line + (main_fs - logo_h) // 2 # テキストと高さを合わせる
+                    logo_y = y_top_line + (main_fs - logo_h) // 2
                     
-                    # ロゴを合成
                     canvas.paste(logo, (start_x, logo_y), logo)
-                    
-                    # テキストの開始位置をロゴの分だけ右にずらす
                     text_top_x = start_x + logo_w + spacing
                 except Exception as logo_err:
-                    print(f"Logo placement failed: {logo_err}")
                     text_top_x = (canvas_w - draw.textbbox((0, 0), text_top, font=f_main)[2]) // 2
             else:
                 text_top_x = (canvas_w - draw.textbbox((0, 0), text_top, font=f_main)[2]) // 2
 
             # --- テキスト描画 ---
-            # 上段テキスト
             draw.text((text_top_x, y_top_line), text_top, fill=self.config.colors.main, font=f_main)
-            
-            # 下段テキスト（常に中央寄せ）
             tw_bottom = draw.textbbox((0, 0), text_bottom, font=f_sub)[2]
             draw.text(((canvas_w - tw_bottom) // 2, y_bottom_line), text_bottom, fill=self.config.colors.sub, font=f_sub)
 
@@ -183,7 +175,9 @@ class ImageProcessor:
             out_dir.mkdir(exist_ok=True)
             out_path = out_dir / f"{self.config.output.prefix}{path.stem}.jpg"
             canvas.save(out_path, "JPEG", quality=self.config.output.quality, subsampling=0)
-            print(f"Success: {path.name}")
+            
+            # 成功時の表示
+            print(progress_str)
 
         except Exception as e:
             print(f"Error: {path.name} - {e}")
@@ -201,8 +195,10 @@ class ImageProcessor:
             print("No valid image files found.")
             return
 
-        for f in valid_files:
-            self.process_image(f)
+        total_files = len(valid_files)
+        # enumerateを使って現在の番号(i)を取得
+        for i, f in enumerate(valid_files, 1):
+            self.process_image(f, i, total_files)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -218,5 +214,3 @@ if __name__ == "__main__":
 
     processor = ImageProcessor(conf_path)
     processor.run(input_path)
-    
-    print("\nProcessing completed.")
