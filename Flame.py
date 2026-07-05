@@ -138,40 +138,41 @@ class ImageProcessor:
             text_top = self.config.layout.top.format(**meta_dict)
             text_bottom = self.config.layout.bottom.format(**meta_dict)
 
-            y_base = h + side_m
-            y_top_line = y_base + int(bott_m * self.config.layout.top_padding_ratio)
+            # 下部余白エリアの「左上端」の基準座標
+            margin_area_x = 0
+            margin_area_y = h + side_m  # 写真の高さ + 上の余白
+
+            y_top_line = margin_area_y + int(bott_m * self.config.layout.top_padding_ratio)
             y_bottom_line = y_top_line + self.config.layout.line_spacing_px
 
-            # --- テキスト描画位置（完全センタリング） ---
-            tw_top = draw.textbbox((0, 0), text_top, font=f_main)[2]
-            text_top_x = (canvas_w - tw_top) // 2
-            
-            tw_bottom = draw.textbbox((0, 0), text_bottom, font=f_sub)[2]
-            text_bottom_x = (canvas_w - tw_bottom) // 2
-
-            # --- ロゴ描画処理（テキスト位置を基準に指定） ---
+            # --- ロゴ描画処理（余白エリアからの絶対位置指定） ---
             if self.logo_path.exists() and "Nikon" in meta.camera:
                 try:
                     logo = Image.open(self.logo_path).convert("RGBA")
-                    logo_h = int(main_fs * 1.5)
+                    logo_h = int(main_fs * 2.3)
                     logo_w = int(logo.width * (logo_h / logo.height))
                     logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
                     
-                    # 【設定】テキストエリアの左上(text_top_x, y_top_line)からのオフセット位置
-                    # 必要に応じてこの数値を調整、または yaml から読み込めるようにしてください。
-                    logo_offset_left = -50  # テキストの左端から左に150px
-                    logo_offset_top = -10    # テキストの上端から上に10px
+                    # 【設定】下部余白エリアの左上端(0, margin_area_y)からの指定ピクセル数
+                    # 左右の余白サイズ（side_m）に合わせる場合は、LEFTを side_m に設定してください。
+                    logo_left = side_m + 70   # キャンバス左端からの距離（写真の左端に合わせる場合は side_m）
+                    logo_top = 70        # 下部余白エリアの上端からどれだけ下に下げるか(px)
                     
-                    # 実際の座標計算
-                    logo_x = text_top_x + logo_offset_left
-                    logo_y = y_top_line + logo_offset_top
+                    # 実際のキャンバス座標に変換
+                    logo_x = margin_area_x + logo_left
+                    logo_y = margin_area_y + logo_top
                     
                     canvas.paste(logo, (logo_x, logo_y), logo)
                 except Exception as logo_err:
                     pass
 
-            # --- テキスト描画 ---
+            # --- テキスト描画（完全センタリング） ---
+            tw_top = draw.textbbox((0, 0), text_top, font=f_main)[2]
+            text_top_x = (canvas_w - tw_top) // 2
             draw.text((text_top_x, y_top_line), text_top, fill=self.config.colors.main, font=f_main)
+            
+            tw_bottom = draw.textbbox((0, 0), text_bottom, font=f_sub)[2]
+            text_bottom_x = (canvas_w - tw_bottom) // 2
             draw.text((text_bottom_x, y_bottom_line), text_bottom, fill=self.config.colors.sub, font=f_sub)
 
             # 保存
