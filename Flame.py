@@ -142,30 +142,37 @@ class ImageProcessor:
             y_top_line = y_base + int(bott_m * self.config.layout.top_padding_ratio)
             y_bottom_line = y_top_line + self.config.layout.line_spacing_px
 
-            # --- ロゴ描画処理 ---
-            text_top_x = 0
+            # --- テキスト描画位置（完全センタリング） ---
+            tw_top = draw.textbbox((0, 0), text_top, font=f_main)[2]
+            text_top_x = (canvas_w - tw_top) // 2
+            
+            tw_bottom = draw.textbbox((0, 0), text_bottom, font=f_sub)[2]
+            text_bottom_x = (canvas_w - tw_bottom) // 2
+
+            # --- ロゴ描画処理（テキスト位置を基準に指定） ---
             if self.logo_path.exists() and "Nikon" in meta.camera:
                 try:
                     logo = Image.open(self.logo_path).convert("RGBA")
                     logo_h = int(main_fs * 1.5)
                     logo_w = int(logo.width * (logo_h / logo.height))
                     logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-                    tw_top = draw.textbbox((0, 0), text_top, font=f_main)[2]
-                    spacing = int(main_fs * 0.5)
-                    total_content_w = logo_w + spacing + tw_top
-                    start_x = (canvas_w - total_content_w) // 2
-                    logo_y = y_top_line + (main_fs - logo_h) // 2
-                    canvas.paste(logo, (start_x, logo_y), logo)
-                    text_top_x = start_x + logo_w + spacing
+                    
+                    # 【設定】テキストエリアの左上(text_top_x, y_top_line)からのオフセット位置
+                    # 必要に応じてこの数値を調整、または yaml から読み込めるようにしてください。
+                    logo_offset_left = -50  # テキストの左端から左に150px
+                    logo_offset_top = -10    # テキストの上端から上に10px
+                    
+                    # 実際の座標計算
+                    logo_x = text_top_x + logo_offset_left
+                    logo_y = y_top_line + logo_offset_top
+                    
+                    canvas.paste(logo, (logo_x, logo_y), logo)
                 except Exception as logo_err:
-                    text_top_x = (canvas_w - draw.textbbox((0, 0), text_top, font=f_main)[2]) // 2
-            else:
-                text_top_x = (canvas_w - draw.textbbox((0, 0), text_top, font=f_main)[2]) // 2
+                    pass
 
             # --- テキスト描画 ---
             draw.text((text_top_x, y_top_line), text_top, fill=self.config.colors.main, font=f_main)
-            tw_bottom = draw.textbbox((0, 0), text_bottom, font=f_sub)[2]
-            draw.text(((canvas_w - tw_bottom) // 2, y_bottom_line), text_bottom, fill=self.config.colors.sub, font=f_sub)
+            draw.text((text_bottom_x, y_bottom_line), text_bottom, fill=self.config.colors.sub, font=f_sub)
 
             # 保存
             out_dir = path.parent / self.config.output.dir_name

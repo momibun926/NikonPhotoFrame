@@ -18,7 +18,7 @@ colors:
 
 # 余白設定（画像長辺に対する割合）
 ratios:
-  bottom_margin: 0.090
+  bottom_margin: 0.070
   side_margin: 0.000
 
 # レイアウトテンプレート
