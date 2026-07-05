@@ -1,7 +1,7 @@
 # フォント設定
 fonts:
   # システムにインストールされているフォント名、またはパスを指定
-  bold: ["SofiaSans-Regular.ttfss"]
+  bold: ["SofiaSans-Regular.ttf"]
   regular: ["SofiaSans-Light.ttf"]
   
   # サイズ指定のタイプ ("px" または "ratio")

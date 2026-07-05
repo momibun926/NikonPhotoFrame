@@ -147,17 +147,14 @@ class ImageProcessor:
             if self.logo_path.exists() and "Nikon" in meta.camera:
                 try:
                     logo = Image.open(self.logo_path).convert("RGBA")
-                    logo_h = int(main_fs * 1.2)
+                    logo_h = int(main_fs * 1.5)
                     logo_w = int(logo.width * (logo_h / logo.height))
                     logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-                    
                     tw_top = draw.textbbox((0, 0), text_top, font=f_main)[2]
                     spacing = int(main_fs * 0.5)
                     total_content_w = logo_w + spacing + tw_top
-                    
                     start_x = (canvas_w - total_content_w) // 2
                     logo_y = y_top_line + (main_fs - logo_h) // 2
-                    
                     canvas.paste(logo, (start_x, logo_y), logo)
                     text_top_x = start_x + logo_w + spacing
                 except Exception as logo_err:
